@@ -1,0 +1,115 @@
+name: Build & Release (Android + Windows)
+
+on:
+  push:
+    tags:
+      - 'v*'                     # Se dispara al subir un tag como v1.0.0
+  workflow_dispatch:            # Permite ejecución manual desde Actions
+
+permissions:
+  contents: write               # Necesario para crear el Release
+
+jobs:
+  # ------------------------------------------------------------
+  # 1) Compilación para Android (APK)
+  # ------------------------------------------------------------
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          # Si necesitas una versión concreta, descomenta:
+          # flutter-version: '3.24.0'
+
+      - name: Generar archivos de plataforma (si faltan)
+        run: flutter create .
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Compilar APK (release)
+        run: flutter build apk --release
+
+      - name: Subir APK como artefacto temporal
+        uses: actions/upload-artifact@v4
+        with:
+          name: credentia-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  # ------------------------------------------------------------
+  # 2) Compilación para Windows (ZIP)
+  # ------------------------------------------------------------
+  build-windows:
+    name: Build Windows ZIP
+    runs-on: windows-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generar archivos de plataforma (si faltan)
+        run: flutter create .
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Compilar Windows (release)
+        run: flutter build windows --release
+
+      - name: Comprimir carpeta de salida
+        run: 7z a -mx9 windows-release.zip ./build/windows/x64/runner/Release/*
+
+      - name: Subir ZIP como artefacto temporal
+        uses: actions/upload-artifact@v4
+        with:
+          name: credentia-windows-zip
+          path: windows-release.zip
+
+  # ------------------------------------------------------------
+  # 3) Publicar Release con ambos archivos
+  # ------------------------------------------------------------
+  release:
+    name: Publicar Release en GitHub
+    needs: [build-android, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')   # Solo si el trigger es un tag v*
+    steps:
+      - name: Descargar APK del job Android
+        uses: actions/download-artifact@v4
+        with:
+          name: credentia-android-apk
+          path: ./dist
+
+      - name: Descargar ZIP del job Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: credentia-windows-zip
+          path: ./dist
+
+      - name: Crear Release y adjuntar archivos
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist/app-release.apk
+            ./dist/windows-release.zip
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Credentia_Exp ${{ github.ref_name }}
+
+            - **Android**: `app-release.apk` (instalable en dispositivos Android)
+            - **Windows**: `windows-release.zip` (descomprimir y ejecutar el .exe)
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
