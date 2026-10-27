@@ -3,15 +3,15 @@ name: Build & Release (Android + Windows)
 on:
   push:
     tags:
-      - 'v*'                     # Se dispara al subir un tag como v1.0.0
-  workflow_dispatch:            # Permite ejecución manual desde Actions
+      - 'v*'
+  workflow_dispatch:
 
 permissions:
-  contents: write               # Necesario para crear el Release
+  contents: write
 
 jobs:
   # ------------------------------------------------------------
-  # 1) Compilación para Android (APK)
+  # 1) Android: eliminar android/ obsoleto y regenerar
   # ------------------------------------------------------------
   build-android:
     name: Build Android APK
@@ -24,26 +24,31 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # Si necesitas una versión concreta, descomenta:
-          # flutter-version: '3.24.0'
 
-      - name: Generar archivos de plataforma (si faltan)
+      # --- SOLUCIÓN: borrar la carpeta android antigua ---
+      - name: Eliminar carpeta android obsoleta
+        run: rm -rf android
+
+      - name: Regenerar estructura de plataformas
         run: flutter create .
 
       - name: Instalar dependencias
         run: flutter pub get
 
+      - name: Limpiar caché de compilación
+        run: flutter clean
+
       - name: Compilar APK (release)
         run: flutter build apk --release
 
-      - name: Subir APK como artefacto temporal
+      - name: Subir APK como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: credentia-android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
   # ------------------------------------------------------------
-  # 2) Compilación para Windows (ZIP)
+  # 2) Windows: eliminar windows/ obsoleto y regenerar
   # ------------------------------------------------------------
   build-windows:
     name: Build Windows ZIP
@@ -57,11 +62,19 @@ jobs:
         with:
           channel: stable
 
-      - name: Generar archivos de plataforma (si faltan)
+      # --- SOLUCIÓN: borrar la carpeta windows antigua (PowerShell) ---
+      - name: Eliminar carpeta windows obsoleta
+        run: Remove-Item -Recurse -Force windows
+        shell: pwsh
+
+      - name: Regenerar estructura de plataformas
         run: flutter create .
 
       - name: Instalar dependencias
         run: flutter pub get
+
+      - name: Limpiar caché de compilación
+        run: flutter clean
 
       - name: Compilar Windows (release)
         run: flutter build windows --release
@@ -69,7 +82,7 @@ jobs:
       - name: Comprimir carpeta de salida
         run: 7z a -mx9 windows-release.zip ./build/windows/x64/runner/Release/*
 
-      - name: Subir ZIP como artefacto temporal
+      - name: Subir ZIP como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: credentia-windows-zip
@@ -82,15 +95,15 @@ jobs:
     name: Publicar Release en GitHub
     needs: [build-android, build-windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')   # Solo si el trigger es un tag v*
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
-      - name: Descargar APK del job Android
+      - name: Descargar APK
         uses: actions/download-artifact@v4
         with:
           name: credentia-android-apk
           path: ./dist
 
-      - name: Descargar ZIP del job Windows
+      - name: Descargar ZIP de Windows
         uses: actions/download-artifact@v4
         with:
           name: credentia-windows-zip
@@ -107,7 +120,7 @@ jobs:
           body: |
             ## Credentia_Exp ${{ github.ref_name }}
 
-            - **Android**: `app-release.apk` (instalable en dispositivos Android)
+            - **Android**: `app-release.apk`
             - **Windows**: `windows-release.zip` (descomprimir y ejecutar el .exe)
           draft: false
           prerelease: false
