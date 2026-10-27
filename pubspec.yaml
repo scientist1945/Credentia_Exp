@@ -1,0 +1,25 @@
+name: credentia_exp_wallet
+description: Wallet móvil nativa para la red Expanse con soporte de dApps.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web3dart: ^2.6.1
+  bip39: ^1.0.6
+  http: ^1.1.0
+  webview_flutter: ^4.4.1
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
