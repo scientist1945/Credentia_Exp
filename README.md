@@ -16,12 +16,3 @@ Ya que este ZIP contiene únicamente los archivos personalizados, debes generar 
 5. Ejecuta la aplicación:
    `flutter run`
 
-## Subir a GitHub
-```bash
-git init
-git add .
-git commit -m "Initial commit - Credentia EXP Wallet con Web3 Browser"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/credentia-exp-wallet.git
-git push -u origin main
-```
